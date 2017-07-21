@@ -16,7 +16,7 @@ library("lubridate")
 library("rpart")
 library("caret")
 
-WD <- "/Users/sediaz/Documents/Ubiqum/Curso online Primavera 2017/R/Course3Task3"
+WD <- "/Users/sediaz/Documents/GitHub/UJILocation"
 setwd(WD)
 
 source("Functions.R")
@@ -28,10 +28,10 @@ maxd <- 30
 
 
 ####Reading the tables####
-Dataset <- read.csv("DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
-WapSample <- read.csv("data/OnlyWapNormCut.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
-vDataset <- read.csv("validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
-WapVal <- read.csv("data/ValidationWapNorm.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
+WapSample <- read.csv("~/Documents/Ubiqum/Uji/OnlyWapNormCut.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+vDataset <- read.csv("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
+WapVal <- read.csv("~/Documents/Ubiqum/Uji/ValidationWapNorm.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
 
 #Dataset$LATITUDE <- Dataset$LATITUDE - min(Dataset$LATITUDE)
 #Dataset$LONGITUDE <- Dataset$LONGITUDE - min(Dataset$LONGITUDE)
@@ -107,7 +107,7 @@ prediction$check <- ifelse(prediction$resultado == prediction$prediccion,1,0)
 successTrain <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
 successTrain
 
-WapSample <- read.csv("data/OnlyWapNormCut.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+#WapSample <- read.csv("data/OnlyWapNormCut.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
 WapSample$BUILDINGID <- prediction$prediccion
 
 
@@ -130,24 +130,25 @@ successVal
 
 mymean<-apply(WapVal,1,mean)
 
-WapVal <- read.csv("data/ValidationWapNorm.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+#WapVal <- read.csv("data/ValidationWapNorm.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
 WapVal$BUILDINGID <- prediction$prediccion
 
+write.csv(WapSample$BUILDINGID,file="~/Documents/Ubiqum/Uji/DatasetBuildingID.csv",row.names=FALSE)
+write.csv(WapVal$BUILDINGID,file="~/Documents/Ubiqum/Uji/ValidationBuildingID.csv",row.names=FALSE)
 
-set.seed(123)
-indexes <- createDataPartition(WapSample$WAP517, p = .80, list = FALSE)
-trainData <- WapSample[indexes,1:(ncol(WapSample))]
-testData <- WapSample[-indexes,1:(ncol(WapSample))]
-trainData$BUILDINGID <- factor(trainData$BUILDINGID)
 
-control <- trainControl(method="repeatedcv", number=10, repeats=3)
-seed <- 7
-metric <- "Accuracy"
-set.seed(seed)
-mtry <- sqrt(ncol(trainData))
-tunegrid <- expand.grid(.mtry=mtry)
-rf_default <- train(BUILDINGID~., data=trainData, method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
+# set.seed(123)
+# indexes <- createDataPartition(WapSample$WAP517, p = .80, list = FALSE)
+# trainData <- WapSample[indexes,1:(ncol(WapSample))]
+# testData <- WapSample[-indexes,1:(ncol(WapSample))]
+# trainData$BUILDINGID <- factor(trainData$BUILDINGID)
+# control <- trainControl(method="repeatedcv", number=10, repeats=3)
+# seed <- 7
+# metric <- "Accuracy"
+# set.seed(seed)
+# mtry <- sqrt(ncol(trainData))
+# tunegrid <- expand.grid(.mtry=mtry)
+# rf_default <- train(BUILDINGID~., data=trainData, method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
 
-write.csv(WapSample,file="data/OnlyWapBuilding.csv",row.names=FALSE)
-write.csv(WapVal,file="data/validationDataBuilding.csv",row.names=FALSE)
-
+write.csv(WapSample,file="~/Documents/Ubiqum/Uji/OnlyWapBuilding.csv",row.names=FALSE)
+write.csv(WapVal,file="~/Documents/Ubiqum/Uji/validationDataBuilding.csv",row.names=FALSE)
