@@ -11,7 +11,7 @@ library("dplyr")
 library("taRifx")
 library("lubridate")
 library("rpart")
-
+  
 WD <- "/Users/sediaz/Documents/Ubiqum/Curso online Primavera 2017/R/Course3Task3"
 setwd(WD)
 

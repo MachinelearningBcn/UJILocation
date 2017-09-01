@@ -36,6 +36,8 @@ WapVal <- read.csv("~/Documents/Ubiqum/Uji/ValidationWapNorm.csv", sep=",",heade
 #Dataset$LATITUDE <- Dataset$LATITUDE - min(Dataset$LATITUDE)
 #Dataset$LONGITUDE <- Dataset$LONGITUDE - min(Dataset$LONGITUDE)
 
+WapSample$NumberOfWaps <- NULL
+
 set.seed(123)
 indexes <- createDataPartition(WapSample$WAP517, p = .80, list = FALSE)
 trainData <- WapSample[indexes,1:(ncol(WapSample))]
