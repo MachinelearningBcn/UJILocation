@@ -1,0 +1,42 @@
+[1] "Building prediction accuracy is 99.8%"
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    0    1    2
+         0 1049    0    0
+         1    0  971    0
+         2    0    1 1726
+
+Overall Statistics
+                                     
+               Accuracy : 0.9997     
+                 95% CI : (0.9985, 1)
+    No Information Rate : 0.4606     
+    P-Value [Acc > NIR] : < 2.2e-16  
+                                     
+                  Kappa : 0.9996     
+ Mcnemar's Test P-Value : NA         
+
+Statistics by Class:
+
+                     Class: 0 Class: 1 Class: 2
+Sensitivity              1.00   0.9990   1.0000
+Specificity              1.00   1.0000   0.9995
+Pos Pred Value           1.00   1.0000   0.9994
+Neg Pred Value           1.00   0.9996   1.0000
+Prevalence               0.28   0.2594   0.4606
+Detection Rate           0.28   0.2591   0.4606
+Detection Prevalence     0.28   0.2591   0.4609
+Balanced Accuracy        1.00   0.9995   0.9998
+[1] 99.97
+[1] "Building 0 Floor prediction accuracy is 99.52%"
+[1] "Building 1 Floor prediction accuracy is 98.25%"
+[1] "Building 2 Floor prediction accuracy is 99.83%"
+[1] "Test Building prediction accuracy is 99.97%"
+[1] "Test Building 0 Floor prediction accuracy is 99.52%"
+[1] "Test Building 1 Floor prediction accuracy is 98.25%"
+[1] "Test Building 2 Floor prediction accuracy is 99.83%"
+[1] "Test Floor prediction accuracy is 99.36%"
+[1] "Test Building and Floor combined accuracy is 99.33%"
+   user  system elapsed 
+280.057   2.927 285.845 
