@@ -364,8 +364,7 @@ if(run_val){
 }
 
 ####Floor Building 0####
-#threshold <- 0.35
-threshold_b0 <- 0.4
+threshold <- 0.1
 building <- 0
 neighbors <- 3
 
@@ -373,13 +372,13 @@ WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
 testBuilding <- testData[which(testData$BUILDINGID == building), ]
 
 WapSample_b$BUILDINGID<- NULL
-WapSample_b[WapSample_b < threshold_b0] <- 0
+WapSample_b[WapSample_b < threshold] <- 0
 knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
 
 
 if(run_tests){
   testBuilding$BUILDINGID <- NULL
-  testBuilding[testBuilding < threshold_b0] <- 0
+  testBuilding[testBuilding < threshold] <- 0
   
   result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
   
@@ -408,7 +407,7 @@ if(run_tests){
 
 if(run_val){
   vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-  vWapSample_b[vWapSample_b < threshold_b0] <- 0
+  vWapSample_b[vWapSample_b < threshold] <- 0
   
   result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
   
@@ -507,9 +506,7 @@ if(run_val){
 
 
 ####Floor Building 2####
-#threshold <- 0.35
-threshold <- 0.7
-
+threshold <- 0.4
 building <- 2
 neighbors <- 3
 
@@ -639,350 +636,5 @@ print(paste0("Time of execution is " , round(t1[3],2)))
 
 
 
-####Detailed analysis Building 0####
-threshold <- c(0:9/10)
-building <- 0
-neighbors <- 3
-accuracy_test_b0 <- c()
-accuracy_val_b0 <- c()
-
-
-for (j in threshold){
-  WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
-  testBuilding <- testData[which(testData$BUILDINGID == building), ]
-  
-  WapSample_b$BUILDINGID<- NULL
-  
-  WapSample_b[WapSample_b < j] <- 0
-  knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
-  
-  
-  if(run_tests){
-    testBuilding$BUILDINGID <- NULL
-    testBuilding[testBuilding < j] <- 0
-    
-    result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
-    
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_test <- myfloor
-    
-    
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = testBuilding$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successTest <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successTest_b0 <- successTest
-    accuracy_test_b0 <- c(accuracy_test_b0,successTest_b0)
-    successTest
-    print(paste0("Building ",building, " Floor prediction accuracy is " , round(successTest,2), "%"))
-  }  
-  
-  
-  if(run_val){
-    vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-    print(paste0("Threshold is ", j))
-    vWapSample_b[vWapSample_b < j] <- 0
-    
-    result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
-    
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_val <- myfloor
-    
-    
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successVal_b0 <- successVal
-    accuracy_val_b0 <- c(accuracy_val_b0,successVal_b0)
-    
-    successVal
-    print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
-  }
-}
-
-if(run_tests){
-  accuracy_df_test <- data.frame(threshold)
-  accuracy_df_test$accuracy_b0 <- accuracy_test_b0
-  colnames(accuracy_df_test) <- c("Threshold", "Accuracy")
-  accuracy_df_test_b0 <- accuracy_df_test
-  write.csv(accuracy_df_test, "Accuracy_test_b0.csv")
-}
-
-if(run_val){
-  accuracy_df_val <- data.frame(threshold)
-  accuracy_df_val$accuracy_b0 <- accuracy_val_b0
-  colnames(accuracy_df_val) <- c("Threshold", "Accuracy")
-  accuracy_df_val_b0 <- accuracy_df_val
-  write.csv(accuracy_df_val, "Accuracy_val_b0.csv")
-}
-
-
-####Detailed analysis Building 1####
-threshold <- c(0:9/10)
-building <- 1
-neighbors <- 3
-accuracy_test_b <- c()
-accuracy_val_b0 <- c()
-
-
-for (j in threshold){
-  WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
-  testBuilding <- testData[which(testData$BUILDINGID == building), ]
-
-  WapSample_b$BUILDINGID<- NULL
-  
-  WapSample_b[WapSample_b < j] <- 0
-  knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
-
-
-  if(run_tests){
-    testBuilding$BUILDINGID <- NULL
-    testBuilding[testBuilding < j] <- 0
-  
-    result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
-  
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_test <- myfloor
-    
-  
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = testBuilding$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successTest <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successTest_b0 <- successTest
-    accuracy_test_b <- c(accuracy_test_b,successTest_b0)
-    successTest
-    print(paste0("Building ",building, " Floor prediction accuracy is " , round(successTest,2), "%"))
-  }  
-
-
-  if(run_val){
-    vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-    print(paste0("Threshold is ", j))
-    vWapSample_b[vWapSample_b < j] <- 0
-  
-    result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
-  
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_val <- myfloor
-  
-  
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successVal_b0 <- successVal
-    accuracy_val_b0 <- c(accuracy_val_b0,successVal_b0)
-    
-    successVal
-    print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
-  }
-}
-
-if(run_tests){
-  accuracy_df_test <- data.frame(threshold)
-  accuracy_df_test$accuracy_b0 <- accuracy_test_b
-  colnames(accuracy_df_test) <- c("Threshold", "Accuracy")
-  accuracy_df_test_b1 <- accuracy_df_test
-  write.csv(accuracy_df_test, "Accuracy_test_b1.csv")
-}
-
-if(run_val){
-  accuracy_df_val <- data.frame(threshold)
-  accuracy_df_val$accuracy_b0 <- accuracy_val_b0
-  colnames(accuracy_df_val) <- c("Threshold", "Accuracy")
-  accuracy_df_val_b1 <- accuracy_df_val
-  write.csv(accuracy_df_val, "Accuracy_val_b1.csv")
-}
-
-
-####Detailed analysis Building 2####
-threshold <- c(0:9/10)
-building <- 2
-neighbors <- 3
-accuracy_test_b <- c()
-accuracy_val_b0 <- c()
-
-
-for (j in threshold){
-  WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
-  testBuilding <- testData[which(testData$BUILDINGID == building), ]
-  
-  WapSample_b$BUILDINGID<- NULL
-  
-  WapSample_b[WapSample_b < j] <- 0
-  knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
-  
-  
-  if(run_tests){
-    testBuilding$BUILDINGID <- NULL
-    testBuilding[testBuilding < j] <- 0
-    
-    result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
-    
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_test <- myfloor
-    
-    
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = testBuilding$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successTest <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successTest_b0 <- successTest
-    accuracy_test_b <- c(accuracy_test_b,successTest_b0)
-    successTest
-    print(paste0("Building ",building, " Floor prediction accuracy is " , round(successTest,2), "%"))
-  }  
-  
-  
-  if(run_val){
-    vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-    print(paste0("Threshold is ", j))
-    vWapSample_b[vWapSample_b < j] <- 0
-    
-    result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
-    
-    myfloor<-c()
-    for(i in 1:nrow(result)){
-      if(length(which(result[i,] ==1))>0){
-        myf <- which(result[i,] ==1) -1
-      }else{
-        myf <- NA
-      }
-      myfloor <- c(myfloor,myf )
-    }
-    myfloor_b0_val <- myfloor
-    
-    
-    prediction <- as.data.frame(myfloor)
-    prediction$floorid <- myfloor
-    prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-    prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-    successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-    successVal_b0 <- successVal
-    accuracy_val_b0 <- c(accuracy_val_b0,successVal_b0)
-    
-    successVal
-    print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
-  }
-}
-
-if(run_tests){
-  accuracy_df_test <- data.frame(threshold)
-  accuracy_df_test$accuracy_b0 <- accuracy_test_b
-  colnames(accuracy_df_test) <- c("Threshold", "Accuracy")
-  accuracy_df_test_b2 <- accuracy_df_test
-  write.csv(accuracy_df_test, "Accuracy_test_b2.csv")
-}
-
-if(run_val){
-  accuracy_df_val <- data.frame(threshold)
-  accuracy_df_val$accuracy_b0 <- accuracy_val_b0
-  colnames(accuracy_df_val) <- c("Threshold", "Accuracy")
-  accuracy_df_val_b2 <- accuracy_df_val
-  write.csv(accuracy_df_val, "Accuracy_val_b2.csv")
-}
-####Putting Everything Together####
-if(run_tests & run_val){
-  accuracy_b0 <- accuracy_df_test_b0
-  accuracy_b0$validation <- accuracy_df_val_b0$Accuracy
-  colnames(accuracy_b0) <- c("Threshold", "Test", "Validation")
-  accuracy_b0 <- accuracy_b0 %>% mutate(Mean = (Test+Validation)/2)
-  colnames(accuracy_b0) <- c("Threshold", "Test", "Validation", "Mean")
-  
-  
-  accuracy_b1 <- accuracy_df_test_b1
-  accuracy_b1$validation <- accuracy_df_val_b1$Accuracy
-  colnames(accuracy_b1) <- c("Threshold", "Test", "Validation")
-  accuracy_b1 <- accuracy_b1 %>% mutate(Mean = (Test+Validation)/2)
-  colnames(accuracy_b0) <- c("Threshold", "Test", "Validation", "Mean")
-  
-
-
-  accuracy_b2 <- accuracy_df_test_b2
-  accuracy_b2$validation <- accuracy_df_val_b2$Accuracy
-  colnames(accuracy_b2) <- c("Threshold", "Test", "Validation")
-  accuracy_b2 <- accuracy_b2 %>% mutate(Mean = (Test+Validation)/2)
-  colnames(accuracy_b0) <- c("Threshold", "Test", "Validation", "Mean")
-  
-  
-  
-  
-  
-}
-####Making plots####
-p0 <- ggplot()
-p1 <- ggplot()
-p2 <- ggplot()
-
-
-if(run_tests & run_val){
-
-  p0 <- p0 + geom_line(data = accuracy_df_test_b0, aes(x = Threshold, Accuracy), linetype=1)
-  p1 <- p1 + geom_line(data = accuracy_df_test_b1, aes(x = Threshold, Accuracy), linetype=1)
-  p2 <- p2 + geom_line(data = accuracy_df_test_b2, aes(x = Threshold, Accuracy), linetype=1)
-  
-  p0 <- p0 + geom_line(data = accuracy_df_val_b0, aes(x = Threshold, Accuracy), linetype=2)
-  p1 <- p1 + geom_line(data = accuracy_df_val_b1, aes(x = Threshold, Accuracy), linetype=2)
-  p2 <- p2 + geom_line(data = accuracy_df_val_b2, aes(x = Threshold, Accuracy), linetype=2)
-  
-  p0 <- p0 + geom_line(data= accuracy_b0, aes(x = Threshold, Mean), linetype=3)
-  p1 <- p1 + geom_line(data = accuracy_b1, aes(x = Threshold, Mean), linetype=3)
-  p2 <- p2 + geom_line(data = accuracy_b2, aes(x = Threshold, Mean), linetype=3)
-}
-
-p0 <- p0 + ylab("Accuracy %") + ggtitle("Building 0 floor prediction accuracy") +
-  theme(plot.title = element_text(hjust = 0.5)) 
-
-p1 <- p1 + ylab("Accuracy %") + ggtitle("Building 1 floor prediction accuracy") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-p2 <- p2 + ylab("Accuracy %") + ggtitle("Building 2 floor prediction accuracy") +
-  theme(plot.title = element_text(hjust = 0.5))
-
+####Important plots for the paper####
+plot_buildings <- ggplot() +

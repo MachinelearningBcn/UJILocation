@@ -6,8 +6,20 @@
 ###                         ###
 ###############################
 
+
+####Definition of Libraries####
+
+library("data.table")
+#library("tidyr")
+library("dplyr")
+library("taRifx")
+library("rpart")
+library("caret")
+
+
 ####Creating my functions####
 t0 <- proc.time()
+t_model_total <- 0
 
 #Rotates a pair of vectors and set the coordinates starting at (0,0)
 rotate_matrix <- function(myangle, mydataframe){
@@ -18,6 +30,7 @@ rotate_matrix <- function(myangle, mydataframe){
   return(mydataframe)
 }
 
+
 #Save NANs on normalizing by column
 norm_vector <- function(myvector){
   vec_norm <- 0
@@ -26,6 +39,7 @@ norm_vector <- function(myvector){
   }
   return(vec_norm)
 }
+
 
 #Normalizes a dataset by column
 normalize_columns <- function(mydataframe){
@@ -39,6 +53,7 @@ normalize_rows <- function(mydataframe){
   return(as.data.frame(mydataframe))
 }
 
+
 #Selection columns containing waps information
 preprocess_wifi <- function(mydataframe){
   mydataframe <- mydataframe[,1:520]
@@ -46,35 +61,33 @@ preprocess_wifi <- function(mydataframe){
   return(mydataframe)
 }
 
+
 find_wap <- function(myvector){
   mywap <- which(myvector > 0.5 & is.na(myvector) == FALSE)
   myb <- as.numeric(names(which.max(table(building_of_my_wap[mywap]))))
   return(myb)
 }
 
+#Predict building 
 build_pred <- function(where_is_wap, mydataframe){
   predicted_build <- apply(mydataframe, 1, function (x) find_wap(x))
   return(as.numeric(predicted_build))
 }
 
-####Definition of Libraries and variables####
 
-library("data.table")
-library("tidyr")
-library("dplyr")
-library("taRifx")
-library("lubridate")
-library("rpart")
-library("caret")
 
+####Definition of Variables####
 
 WD <- "/Users/sediaz/Documents/Ubiqum/Curso online Primavera 2017/R/Course3Task3"
 setwd(WD)
 
-run_tests <- TRUE
+#source("WifiFunctions.R")
+
+run_tests <- FALSE
 run_val  <- TRUE
 remove_odd_waps <- FALSE
 norm_by_rows <- TRUE
+verbose <- FALSE
 
 ####Reading the tables####
 Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
@@ -126,7 +139,7 @@ building_of_my_wap <- c()
 
 for(i in 1:520){
   
-  if(length(which(WapSample[,i] >0.2)) > 0){
+  if(length(which(WapSample[,i] > 0.2)) > 0){
     mymean <- as.numeric(names(which.max(table(Dataset$BUILDINGID[which(WapSample[,i] > 0)]))))
   }else{
     mymean <- NA
@@ -166,6 +179,21 @@ Dataset_coor$BUILDINGID <- Dataset$BUILDINGID
 colnames(Dataset_coor)[1] <- "LONGITUDE"
 WapSample$rot_x <- Dataset_coor$rot_x
 
+
+plotting <- TRUE
+if(plotting){
+  
+  ggplot() + geom_point(data = Dataset_coor, aes(x = rot_x, y = rot_y)) + xlim(0,400) + ylim(-150,250) +
+    xlab("Longitude (m)") + ylab("Latitude (m)")
+  ggplot() + geom_point(data = Dataset, aes(x = LONGITUDE, y = LATITUDE)) + xlim(0,400) + ylim(-50,350) +
+    xlab("Longitude (m)") + ylab("Latitude (m)")
+  
+  ggplot() + geom_point(data = Dataset, aes(x = LONGITUDE, y = LATITUDE)) + geom_point(data = vDataset, aes(x = LONGITUDE, y = LATITUDE), color="red")
+    + xlim(0,400) + ylim(-150,250) +
+    xlab("Longitude (m)") + ylab("Latitude (m)")
+  
+}
+
 if(run_val){
   vDataset_coor <- as.data.frame(vDataset$LONGITUDE)
   vDataset_coor$LATITUDE <- vDataset$LATITUDE
@@ -197,10 +225,15 @@ testData_b <- testData[which(testData$BUILDINGID == building),]
 testData_b$BUILDINGID <- NULL
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
+
+t_model_1 <- proc.time()
+
 rf_model <-  rpart(rot_x ~.,
                    data = WapSample_b,
                    control = rpart.control(maxdepth = 30,cp=0.0001))
 
+t_model_2 <- proc.time() - t_model_1
+t_model_total <- t_model_total + t_model_2
 
 if(run_tests){
   testData_b$BUILDINGID <- NULL
@@ -232,9 +265,13 @@ testData_b <- testData[which(testData$BUILDINGID == building),]
 testData_b$BUILDINGID <- NULL
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
+
+t_model_1 <- proc.time()
 rf_model <-  rpart(rot_x ~.,
                    data = WapSample_b,
                    control = rpart.control(maxdepth = 30,cp=0.0001))
+t_model_2 <- proc.time() - t_model_1
+t_model_total <- t_model_total + t_model_2
 
 
 if(run_tests){
@@ -268,10 +305,15 @@ testData_b <- testData[which(testData$BUILDINGID == building),]
 testData_b$BUILDINGID <- NULL
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
+
+t_model_1 <- proc.time()
+
 rf_model <-  rpart(rot_x ~.,
                    data = WapSample_b,
                    control = rpart.control(maxdepth = 30,cp=0.0001))
 
+t_model_2 <- proc.time() - t_model_1
+t_model_total <- t_model_total + t_model_2
 
 if(run_tests){
   testData_b$BUILDINGID <- NULL
@@ -325,9 +367,13 @@ testBuilding <- as.data.frame(testData$rot_x)
 testBuilding$BUILDINGID <- testData$BUILDINGID
 names(testBuilding) <- c("rot_x","BUILDINGID")
 
+t_model_1 <- proc.time()
 rf_model_b <- rpart(BUILDINGID ~ rot_x,
                    data = trainBuilding,
                    control = rpart.control(maxdepth = 30,cp=0.0001))
+
+t_model_2 <- proc.time() - t_model_1
+t_model_total <- t_model_total + t_model_2
 
 if(run_tests){
   pred <- as.data.frame(predict(rf_model_b,newdata= testBuilding)) #predict test dataset
@@ -362,9 +408,9 @@ testData$rot_x <- NULL
 if(run_val){
   vWapSample$FLOOR <- vDataset$FLOOR
 }
-
+ 
 ####Floor Building 0####
-threshold <- 0.35
+threshold <- 0.1
 building <- 0
 neighbors <- 3
 
@@ -506,7 +552,7 @@ if(run_val){
 
 
 ####Floor Building 2####
-threshold <- 0.35
+threshold <- 0.4
 building <- 2
 neighbors <- 3
 
@@ -619,19 +665,20 @@ if(run_tests){
 }
 
 if(run_val){
-  
-  print(paste0("Validation Building prediction accuracy is " , Building_accuracy_val, "%"))
-  print(paste0("Validation Building ",0, " Floor prediction accuracy is " , round(successVal_b0,2), "%"))
-  print(paste0("Validation Building ",1, " Floor prediction accuracy is " , round(successVal_b1,2), "%"))
-  print(paste0("Validation Building ",2, " Floor prediction accuracy is " , round(successVal_b2,2), "%"))
-  print(paste0("Validation Floor prediction accuracy is " , Floor_accuracy_val, "%"))
-  print(paste0("Validation Building and Floor combined accuracy is " , Total_accuracy_val, "%"))
-  
+  if(verbose){
+    print(paste0("Validation Building prediction accuracy is " , Building_accuracy_val, "%"))
+    print(paste0("Validation Building ",0, " Floor prediction accuracy is " , round(successVal_b0,2), "%"))
+    print(paste0("Validation Building ",1, " Floor prediction accuracy is " , round(successVal_b1,2), "%"))
+    print(paste0("Validation Building ",2, " Floor prediction accuracy is " , round(successVal_b2,2), "%"))
+    print(paste0("Validation Floor prediction accuracy is " , Floor_accuracy_val, "%"))
+    print(paste0("Validation Building and Floor combined accuracy is " , Total_accuracy_val, "%"))
+  }
   
 }
 
 t1 <- proc.time() - t0
 print(paste0("Time of execution is " , round(t1[3],2)))
+print(paste0("Time of creating models is " , round(t_model_total[3],2)))
 
 
 
