@@ -1,12 +1,3 @@
-###############################
-###                         ###
-###   WIFI LOCATION         ###
-###                         ###
-###                         ###
-###                         ###
-###############################
-
-
 ####Definition of Libraries####
 
 library("data.table")
@@ -15,6 +6,9 @@ library("dplyr")
 library("taRifx")
 library("rpart")
 library("caret")
+library("e1071")
+library("C50")
+
 
 
 ####Creating my functions####
@@ -69,6 +63,7 @@ find_wap <- function(myvector){
   return(myb)
 }
 
+
 #Predict building 
 build_pred <- function(where_is_wap, mydataframe){
   predicted_build <- apply(mydataframe, 1, function (x) find_wap(x))
@@ -85,7 +80,7 @@ setwd(WD)
 #source("WifiFunctions.R")
 
 run_tests <- TRUE
-run_val  <- TRUE
+run_final <- FALSE
 remove_odd_waps <- FALSE
 norm_by_rows <- TRUE
 verbose <- TRUE
@@ -94,6 +89,9 @@ verbose <- TRUE
 Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
 vDataset <- read.csv("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
 oDataset <- read.csv("~/Documents/Ubiqum/Uji/trainingData.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+if(run_final){
+fDataset <- read.csv("~/Documents/Ubiqum/Uji/UJIIndoorLoc_PrivateTestSet.csv", sep=",",header=FALSE,stringsAsFactors = FALSE)
+}
 
 #Starting coordinates at 0
 Dataset$LONGITUDE <- Dataset$LONGITUDE - min(Dataset$LONGITUDE)
@@ -101,12 +99,20 @@ Dataset$LATITUDE <- Dataset$LATITUDE - min(Dataset$LATITUDE)
 vDataset$LONGITUDE <- vDataset$LONGITUDE - min(oDataset$LONGITUDE)
 vDataset$LATITUDE <- vDataset$LATITUDE - min(oDataset$LATITUDE)
 
+#Setting names on final test dataset
+colnames(fDataset) <- colnames(Dataset)
+
 ####Removing duplicated rows####
 duplicated_rows <- which(duplicated(Dataset))  #3% of rows are copies of other rows
 Dataset <- Dataset[-duplicated_rows,]
 
 #Validation Dataset
 duplicated_rows <- which(duplicated(vDataset))  #0% of rows are copies
+
+#Final Dataset
+duplicated_rows <- which(duplicated(fDataset))  #0.13% of rows are copies
+
+#fDataset <- fDataset[-duplicated_rows,] Eliminamos las filas repetidas? 
 
 
 ####Preprocess####
@@ -121,18 +127,15 @@ if(norm_by_rows){
   WapSample <- normalize_columns(DatasetWaps)
 }
 
-if(run_val){
-  vDatasetWaps <- preprocess_wifi(vDataset)
-  extrange_rows <- which(apply(vDatasetWaps, 1, max) > -30)
-  
-  if(length(extrange_rows > 0)){
-    vDatasetWaps <- vDatasetWaps[-extrange_rows,] #Removing rows with data over -30 dB
-    vDataset <- vDataset[-extrange_rows,]
-    
-  }
-  vWapSample <- normalize_rows(vDatasetWaps)
+
+if(run_final){
+  fDatasetWaps <- preprocess_wifi(fDataset)
+  extrange_rows <- which(apply(fDatasetWaps, 1, max) > -30)
+  fWapSample <- normalize_rows(fDatasetWaps)
   
 }
+
+
 ####Calculate my building via weighted waps####
 #1 - Selecting where is any wap
 
@@ -160,12 +163,10 @@ WapSample$BUILDINGID <- myBuilding
 
 #99.8% for trainSet
 
-if(run_val){
-  
-  myBuilding <- build_pred(building_of_my_wap,vWapSample)
-  successTrainVal <- (1 - length(which((as.numeric(myBuilding) - vDataset$BUILDINGID) != 0))/length(vDataset$BUILDINGID)) * 100
-  print(paste0("Building prediction accuracy is " , round(successTrainVal,2), "%"))
-  vWapSample$BUILDINGID <- myBuilding
+
+if(run_final){
+  myBuilding <- build_pred(building_of_my_wap, fWapSample)
+  fWapSample$BUILDINGID <- myBuilding
 }
 
 
@@ -181,28 +182,9 @@ colnames(Dataset_coor)[1] <- "LONGITUDE"
 WapSample$rot_x <- Dataset_coor$rot_x
 
 
-plotting <- TRUE
-if(plotting){
+if(run_final){
   
-  ggplot() + geom_point(data = Dataset_coor, aes(x = rot_x, y = rot_y)) + xlim(0,400) + ylim(-150,250) +
-    xlab("Longitude (m)") + ylab("Latitude (m)")
-  ggplot() + geom_point(data = Dataset, aes(x = LONGITUDE, y = LATITUDE)) + xlim(0,400) + ylim(-50,350) +
-    xlab("Longitude (m)") + ylab("Latitude (m)")
-  
-  ggplot() + geom_point(data = Dataset, aes(x = LONGITUDE, y = LATITUDE)) + geom_point(data = vDataset, aes(x = LONGITUDE, y = LATITUDE), color="red")
-    + xlim(0,400) + ylim(-150,250) +
-    xlab("Longitude (m)") + ylab("Latitude (m)")
-  
-}
-
-if(run_val){
-  vDataset_coor <- as.data.frame(vDataset$LONGITUDE)
-  vDataset_coor$LATITUDE <- vDataset$LATITUDE
-  
-  vDataset_coor <- rotate_matrix(angle, vDataset_coor)
-  vDataset_coor$BUILDINGID <- vDataset$BUILDINGID
-  colnames(vDataset_coor)[1] <- "LONGITUDE"
-  vWapSample$rot_x <- vDataset_coor$rot_x
+  #fDataset_coor <- as.data.frame()
   
   
 }
@@ -212,6 +194,7 @@ set.seed(123)
 indexes <- createDataPartition(WapSample$WAP001, p = .80, list = FALSE)
 trainData <- WapSample[indexes,1:(ncol(WapSample))]
 testData <- WapSample[-indexes,1:(ncol(WapSample))]
+
 
 ####Rot x Building 0####
 threshold <- 0.35
@@ -243,12 +226,14 @@ if(run_tests){
   rot_x_b0 <- result
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building),]
-  vWapSample_b$BUILDINGID <- NULL
-  vWapSample_b[vWapSample_b < threshold] <- 0
-  result <- as.data.frame(predict(rf_model, newdata = vWapSample_b))  
-  rot_x_b0_val <- result
+
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building),]
+  fWapSample_b$BUILDINGID <- NULL
+  fWapSample_b[fWapSample_b < threshold] <- 0
+  result <- as.data.frame(predict(rf_model, newdata = fWapSample_b))  
+  rot_x_b0_final <- result
   
 }
 
@@ -282,12 +267,13 @@ if(run_tests){
   rot_x_b1 <- result
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building),]
-  vWapSample_b$BUILDINGID <- NULL
-  vWapSample_b[vWapSample_b < threshold] <- 0
-  result <- as.data.frame(predict(rf_model, newdata = vWapSample_b))  
-  rot_x_b1_val <- result
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building),]
+  fWapSample_b$BUILDINGID <- NULL
+  fWapSample_b[fWapSample_b < threshold] <- 0
+  result <- as.data.frame(predict(rf_model, newdata = fWapSample_b))  
+  rot_x_b1_final <- result
   
 }
 
@@ -323,16 +309,15 @@ if(run_tests){
   rot_x_b2 <- result
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building),]
-  vWapSample_b$BUILDINGID <- NULL
-  vWapSample_b[vWapSample_b < threshold] <- 0
-  result <- as.data.frame(predict(rf_model, newdata = vWapSample_b))  
-  rot_x_b2_val <- result
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building),]
+  fWapSample_b$BUILDINGID <- NULL
+  fWapSample_b[fWapSample_b < threshold] <- 0
+  result <- as.data.frame(predict(rf_model, newdata = fWapSample_b))  
+  rot_x_b2_final <- result
   
 }
-
-
 
 
 ####Putting Everything Together####
@@ -349,13 +334,14 @@ if(run_tests){
 
 
 
-if(run_val){
-  rot_x_val <- c()
-  rot_x_val[which(vWapSample$BUILDINGID == 0)] <- rot_x_b0_val[,1]
-  rot_x_val[which(vWapSample$BUILDINGID == 1)] <- rot_x_b1_val[,1]
-  rot_x_val[which(vWapSample$BUILDINGID == 2)] <- rot_x_b2_val[,1]
-  vWapSample$rot_x <- rot_x_val
+if(run_final){
+  rot_x_final <- c()
+  rot_x_final[which(fWapSample$BUILDINGID == 0)] <- rot_x_b0_final[,1]
+  rot_x_final[which(fWapSample$BUILDINGID == 1)] <- rot_x_b1_final[,1]
+  rot_x_final[which(fWapSample$BUILDINGID == 2)] <- rot_x_b2_final[,1]
+  fWapSample$rot_x <- rot_x_final
 }
+
 
 
 
@@ -370,8 +356,8 @@ names(testBuilding) <- c("rot_x","BUILDINGID")
 
 t_model_1 <- proc.time()
 rf_model_b <- rpart(BUILDINGID ~ rot_x,
-                   data = trainBuilding,
-                   control = rpart.control(maxdepth = 30,cp=0.0001))
+                    data = trainBuilding,
+                    control = rpart.control(maxdepth = 30,cp=0.0001))
 
 t_model_2 <- proc.time() - t_model_1
 t_model_total <- t_model_total + t_model_2
@@ -387,18 +373,14 @@ if(run_tests){
   Building_accuracy  
 }
 
-if(run_val){
+if(run_final){
   
-  pred <- as.data.frame(predict(rf_model_b,newdata= vWapSample)) #predict test dataset
+  pred <- as.data.frame(predict(rf_model_b,newdata= fWapSample)) #predict test dataset
   pred <- pred %>% mutate(prediccion = round(pred[,1])) 
-  Building_pred_val <- pred$prediccion
+  Building_pred_final <- pred$prediccion
   
-  vWapSample$BUILDINGID <- pred$prediccion
-  confusionMatrix(vDataset$BUILDINGID, pred$prediccion)
-  Building_accuracy_val <- round((1 - length(which(vDataset$BUILDINGID != pred$prediccion))/length(vDataset$BUILDINGID)) *100,2)
-  Building_accuracy_val  
+  fWapSample$BUILDINGID <- pred$prediccion
 }
-
 
 ####Adding floor to the mix ####
 trainData$FLOOR <- Dataset$FLOOR[indexes]
@@ -406,10 +388,7 @@ testData$FLOOR <- Dataset$FLOOR[-indexes]
 trainData$rot_x <- NULL
 testData$rot_x <- NULL
 
-if(run_val){
-  vWapSample$FLOOR <- vDataset$FLOOR
-}
- 
+
 ####Floor Building 0####
 threshold <- 0.1
 building <- 0
@@ -421,18 +400,29 @@ testBuilding <- testData[which(testData$BUILDINGID == building), ]
 WapSample_b$BUILDINGID<- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
+rf_model <- rpart(FLOOR ~.,
+                  data = WapSample_b,
+                  control = rpart.control(maxdepth = 30,cp=0.0001))
+svm_model <- svm(FLOOR ~., data = WapSample_b)
 
+WapSample_c5 <- WapSample_b
+WapSample_c5$FLOOR <- NULL
+
+c5_model <- C50::C5.0(x = WapSample_c5, y = factor(WapSample_b$FLOOR))
 
 if(run_tests){
   testBuilding$BUILDINGID <- NULL
   testBuilding[testBuilding < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_b0 <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_rf0 <- as.data.frame(round(predict(rf_model, newdata = testBuilding)))
+  result_svm0 <- as.data.frame(round(predict(svm_model, newdata = testBuilding)))
+  result_c50 <- as.data.frame(predict(c5_model, newdata = testBuilding))
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_b0)){
+    if(length(which(result_b0[i,] == 1))>0){
+      myf <- which(result_b0[i,] == 1) -1
     }else{
       myf <- NA
     }
@@ -452,32 +442,26 @@ if(run_tests){
   
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-  vWapSample_b[vWapSample_b < threshold] <- 0
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b[fWapSample_b < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
+  result_f0 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
+  result_f_rf0 <- as.data.frame(round(predict(rf_model, newdata = testBuilding)))
+  
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_f0)){
+    if(length(which(result_f0[i,] ==1))>0){
+      myf <- which(result_f0[i,] ==1) -1
     }else{
       myf <- NA
     }
     myfloor <- c(myfloor,myf )
   }
-  myfloor_b0_val <- myfloor
+  myfloor_b0_final <- myfloor
   
-  
-  prediction <- as.data.frame(myfloor)
-  prediction$floorid <- myfloor
-  prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-  prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-  successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-  successVal_b0 <- successVal
-  successVal
-  print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
 }
 
 
@@ -489,23 +473,36 @@ neighbors <- 3
 WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
 testBuilding <- testData[which(testData$BUILDINGID == building), ]
 
-WapSample_b$BUILDINGID<- NULL
+WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
+rf_model <- rpart(FLOOR ~.,
+                  data = WapSample_b,
+                  control = rpart.control(maxdepth = 30,cp=0.0001))
+svm_model <- svm(FLOOR ~., data = WapSample_b)
+
+WapSample_c5 <- WapSample_b
+WapSample_c5$FLOOR <- NULL
+
+c5_model <- C50::C5.0(x = WapSample_c5, y = factor(WapSample_b$FLOOR))
 
 
 if(run_tests){
   testBuilding$BUILDINGID <- NULL
   testBuilding[testBuilding < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_b1 <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_rf1 <- as.data.frame(round(predict(rf_model, newdata = testBuilding)))
+  result_svm1 <- as.data.frame(round(predict(svm_model, newdata = testBuilding)))
+  result_c51 <- as.data.frame(predict(c5_model, newdata = testBuilding)) 
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_b1)){
+    if(length(which(result_b1[i,] ==1))>0){
+      myf <- which(result_b1[i,] ==1) -1
     }else{
       myf <- NA
+      print(i)
     }
     myfloor <- c(myfloor,myf )
   }
@@ -519,38 +516,32 @@ if(run_tests){
   successTest <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
   successTest_b1 <- successTest
   successTest
+  
   print(paste0("Building ",building, " Floor prediction accuracy is " , round(successTest,2), "%"))
   
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-  vWapSample_b[vWapSample_b < threshold] <- 0
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b[fWapSample_b < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
+  result_f1 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
+  result_f_rf1 <- as.data.frame(round(predict(rf_model, newdata = testBuilding)))
+  
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_f1)){
+    if(length(which(result_f1[i,] ==1))>0){
+      myf <- which(result_f1[i,] ==1) -1
     }else{
       myf <- NA
     }
     myfloor <- c(myfloor,myf )
   }
-  myfloor_b1_val <- myfloor
+  myfloor_b1_final <- myfloor
   
-  
-  prediction <- as.data.frame(myfloor)
-  prediction$floorid <- myfloor
-  prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-  prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-  successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-  successVal_b1 <- successVal
-  successVal
-  print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
 }
-
 
 ####Floor Building 2####
 threshold <- 0.4
@@ -560,21 +551,34 @@ neighbors <- 3
 WapSample_b <- trainData[which(trainData$BUILDINGID == building), ]
 testBuilding <- testData[which(testData$BUILDINGID == building), ]
 
-WapSample_b$BUILDINGID<- NULL
+WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 knnmodel <- knn3(FLOOR ~. , WapSample_b, k = neighbors)
+rf_model <- rpart(FLOOR ~.,
+                  data = WapSample_b,
+                  control = rpart.control(maxdepth = 30,cp=0.0001))
+svm_model <- svm(FLOOR ~., data = WapSample_b)
+
+WapSample_c5 <- WapSample_b
+WapSample_c5$FLOOR <- NULL
+
+c5_model <- C50::C5.0(x = WapSample_c5, y = factor(WapSample_b$FLOOR))
 
 
 if(run_tests){
   testBuilding$BUILDINGID <- NULL
   testBuilding[testBuilding < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_b2 <- as.data.frame(round(predict(knnmodel,newdata = testBuilding)))
+  result_rf2 <- as.data.frame(round(predict(rf_model, newdata = testBuilding)))
+  result_svm2 <- as.data.frame(round(predict(svm_model, newdata = testBuilding)))
+  result_c52 <- as.data.frame(predict(c5_model, newdata = testBuilding))
+  
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_b2)){
+    if(length(which(result_b2[i,] ==1))>0){
+      myf <- which(result_b2[i,] ==1) -1
     }else{
       myf <- NA
     }
@@ -594,41 +598,31 @@ if(run_tests){
   
 }
 
-if(run_val){
-  vWapSample_b <- vWapSample[which(vWapSample$BUILDINGID == building), ]
-  vWapSample_b[vWapSample_b < threshold] <- 0
+
+if(run_final){
+  fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b[fWapSample_b < threshold] <- 0
   
-  result <- as.data.frame(round(predict(knnmodel,newdata = vWapSample_b)))
+  result_f2 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
+  result_f_rf2 <- as.data.frame(round(predict(rf_model, newdata = fWapSample_b)))
+  
   
   myfloor<-c()
-  for(i in 1:nrow(result)){
-    if(length(which(result[i,] ==1))>0){
-      myf <- which(result[i,] ==1) -1
+  for(i in 1:nrow(result_f2)){
+    if(length(which(result_f2[i,] ==1))>0){
+      myf <- which(result_f2[i,] ==1) -1
     }else{
       myf <- NA
     }
     myfloor <- c(myfloor,myf )
   }
-  myfloor_b2_val <- myfloor
+  myfloor_b2_final <- myfloor
   
-  
-  prediction <- as.data.frame(myfloor)
-  prediction$floorid <- myfloor
-  prediction <- prediction %>% mutate(resultado = vWapSample_b$FLOOR)
-  prediction <- prediction %>% mutate(check = ifelse(resultado == floorid, 1, 0)) #Check if prediction is correct
-  successVal <- sum(na.omit(prediction$check))/nrow(prediction)*100 #Percentage of success
-  successVal_b2 <- successVal
-  successVal
-  print(paste0("Building ", building, " Floor prediction accuracy is " , round(successVal,2), "%"))
 }
-
-
-
 
 ####Putting Everything Together####
 
 if(run_tests){
-  
   
   #Creating vector of floor predictions
   floor_test <- c()
@@ -639,19 +633,33 @@ if(run_tests){
   
   wrong_results<- c(which(Building_pred != Dataset$BUILDINGID[-indexes]),which(floor_test != testData$FLOOR))
   Total_accuracy_test <- round((1 - length(unique(wrong_results))/length(floor_test))*100,2)
+  
+  floor_test_rf <- c()
+  floor_test_rf[which(testData$BUILDINGID == 0)]<- as.vector(result_rf0[,1])
+  floor_test_rf[which(testData$BUILDINGID == 1)]<- as.vector(result_rf1[,1])
+  floor_test_rf[which(testData$BUILDINGID == 2)]<- as.vector(result_rf2[,1])
+  Floor_accuracy_rf <- round((1 - length(which(floor_test_rf != testData$FLOOR))/length(floor_test_rf))*100 ,2)
+  
+  floor_test_svm <- c()
+  floor_test_svm[which(testData$BUILDINGID == 0)]<- as.vector(result_svm0[,1])
+  floor_test_svm[which(testData$BUILDINGID == 1)]<- as.vector(result_svm1[,1])
+  floor_test_svm[which(testData$BUILDINGID == 2)]<- as.vector(result_svm2[,1])
+  Floor_accuracy_svm <- round((1 - length(which(floor_test_svm != testData$FLOOR))/length(floor_test_svm))*100 ,2)
+  
+  floor_test_c5 <- c()
+  floor_test_c5[which(testData$BUILDINGID == 0)]<- as.vector(result_c50[,1])
+  floor_test_c5[which(testData$BUILDINGID == 1)]<- as.vector(result_c51[,1])
+  floor_test_c5[which(testData$BUILDINGID == 2)]<- as.vector(result_c52[,1])
+  Floor_accuracy_c5 <- round((1 - length(which(floor_test_c5 != testData$FLOOR))/length(floor_test_c5))*100 ,2)
 }
 
-if(run_val){
-  
+
+if(run_final){
   #Creating vector of floor predictions
-  floor_val <- c()
-  floor_val[which(vWapSample$BUILDINGID == 0)] <- myfloor_b0_val
-  floor_val[which(vWapSample$BUILDINGID == 1)] <- myfloor_b1_val
-  floor_val[which(vWapSample$BUILDINGID == 2)] <- myfloor_b2_val
-  Floor_accuracy_val <- round((1 - length(which(floor_val != vWapSample$FLOOR))/length(floor_val))*100 ,2)
-  
-  wrong_results<- c(which(Building_pred_val != vDataset$BUILDINGID),which(floor_val != vDataset$FLOOR))
-  Total_accuracy_val <- round((1 - length(unique(wrong_results))/length(floor_val))*100,2)
+  floor_final <- c()
+  floor_final[which(fWapSample$BUILDINGID == 0)] <- myfloor_b0_final
+  floor_final[which(fWapSample$BUILDINGID == 1)] <- myfloor_b1_final
+  floor_final[which(fWapSample$BUILDINGID == 2)] <- myfloor_b2_final
 }
 
 
@@ -661,25 +669,31 @@ if(run_tests){
   print(paste0("Test Building ",0, " Floor prediction accuracy is " , round(successTest_b0,2), "%"))
   print(paste0("Test Building ",1, " Floor prediction accuracy is " , round(successTest_b1,2), "%"))
   print(paste0("Test Building ",2, " Floor prediction accuracy is " , round(successTest_b2,2), "%"))
-  print(paste0("Test Floor prediction accuracy is " , Floor_accuracy, "%"))
-  print(paste0("Test Building and Floor combined accuracy is " , Total_accuracy_test, "%"))
-}
-
-if(run_val){
-  if(verbose){
-    print(paste0("Validation Building prediction accuracy is " , Building_accuracy_val, "%"))
-    print(paste0("Validation Building ",0, " Floor prediction accuracy is " , round(successVal_b0,2), "%"))
-    print(paste0("Validation Building ",1, " Floor prediction accuracy is " , round(successVal_b1,2), "%"))
-    print(paste0("Validation Building ",2, " Floor prediction accuracy is " , round(successVal_b2,2), "%"))
-    print(paste0("Validation Floor prediction accuracy is " , Floor_accuracy_val, "%"))
-    print(paste0("Validation Building and Floor combined accuracy is " , Total_accuracy_val, "%"))
-  }
+  print(paste0("Knn Test Floor prediction accuracy is " , Floor_accuracy, "%"))
+  print(paste0("Random Forest Test Floor prediction accuracy is " , Floor_accuracy_rf, "%"))
+  print(paste0("SVM Test Floor prediction accuracy is " , Floor_accuracy_svm, "%"))
+  print(paste0("C5.0 Test Floor prediction accuracy is " , Floor_accuracy_c5, "%"))
   
+  print(paste0("Test Building and Floor combined accuracy is " , Total_accuracy_test, "%"))
 }
 
 t1 <- proc.time() - t0
 print(paste0("Time of execution is " , round(t1[3],2)))
 print(paste0("Time of creating models is " , round(t_model_total[3],2)))
 
+if(run_final){
+  fDatasetWaps$BUILDINGID <- Building_pred_final
+  fDatasetWaps$FLOOR <- floor_final
+  write.csv(fDatasetWaps, "~/Documents/Ubiqum/Uji/Prediction_allmodelstogether.csv")
+}  
+
+####Plots####
+df_accuracy <- as.data.frame(c(Floor_accuracy, Floor_accuracy_rf, Floor_accuracy_svm, Floor_accuracy_c5))
+df_accuracy$model <- c("Knn", "Random Forest", "SVM", "C5.0")
+colnames(df_accuracy) <- c("Accuracy", "Model")
 
 
+ggplot() + geom_col(data = df_accuracy, aes(x=Model, y = Accuracy), width = 0.5) +
+  xlab("Model") + ylab("Accuracy %") +
+  ggtitle("Floor prediction accuracy ")+
+  theme(plot.title = element_text(hjust = 0.5)) + coord_flip(ylim=c(75,100))
