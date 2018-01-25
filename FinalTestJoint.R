@@ -76,7 +76,7 @@ setwd(WD)
 #source("WifiFunctions.R")
 
 run_tests <- TRUE
-run_final <- TRUE
+run_final <- FALSE
 remove_odd_waps <- FALSE
 norm_by_rows <- TRUE
 verbose <- TRUE
@@ -200,6 +200,7 @@ t_model_1 <- proc.time()
 rf_model <-  rpart(rot_x ~.,
                    data = WapSample_b,
                    control = rpart.control(maxdepth = 30,cp=0.0001))
+
 
 t_model_2 <- proc.time() - t_model_1
 t_model_total <- t_model_total + t_model_2
@@ -363,6 +364,9 @@ if(run_final){
   
   fWapSample$BUILDINGID <- pred$prediccion
 }
+
+t1 <- proc.time() - t0
+print(paste0("Time of execution is " , round(t1[3],2)))
 
 ####Adding floor to the mix ####
 trainData$FLOOR <- Dataset_joint$FLOOR[indexes]

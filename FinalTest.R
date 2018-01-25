@@ -80,7 +80,7 @@ setwd(WD)
 #source("WifiFunctions.R")
 
 run_tests <- TRUE
-run_final <- FALSE
+run_final <- TRUE
 remove_odd_waps <- FALSE
 norm_by_rows <- TRUE
 verbose <- TRUE
@@ -89,6 +89,7 @@ verbose <- TRUE
 Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
 vDataset <- read.csv("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
 oDataset <- read.csv("~/Documents/Ubiqum/Uji/trainingData.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+building_of_my_wap <- read.csv("~/Documents/Ubiqum/Uji/BuildingOfMyWap.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)[,1]
 if(run_final){
 fDataset <- read.csv("~/Documents/Ubiqum/Uji/UJIIndoorLoc_PrivateTestSet.csv", sep=",",header=FALSE,stringsAsFactors = FALSE)
 }
@@ -112,7 +113,8 @@ duplicated_rows <- which(duplicated(vDataset))  #0% of rows are copies
 #Final Dataset
 duplicated_rows <- which(duplicated(fDataset))  #0.13% of rows are copies
 
-#fDataset <- fDataset[-duplicated_rows,] Eliminamos las filas repetidas? 
+#fDataset <- fDataset[-duplicated_rows,] Eliminamos las filas repetidas? Nope. 
+#Se cambió la forma de tomar los datos y se generaron puntos de forma instantanea, creando puntos de forma repetida. 
 
 
 ####Preprocess####
@@ -131,25 +133,35 @@ if(norm_by_rows){
 if(run_final){
   fDatasetWaps <- preprocess_wifi(fDataset)
   extrange_rows <- which(apply(fDatasetWaps, 1, max) > -30)
+  
+  #Removing unknown waps before normalizing
+  cols_to_kill <- which(is.na(building_of_my_wap))
+  fDatasetWaps[,cols_to_kill] <- -110
+  
   fWapSample <- normalize_rows(fDatasetWaps)
   
+  
+  
+  
 }
+
+
 
 
 ####Calculate my building via weighted waps####
 #1 - Selecting where is any wap
 
-building_of_my_wap <- c()
-
-for(i in 1:520){
-  
-  if(length(which(WapSample[,i] > 0.2)) > 0){
-    mymean <- as.numeric(names(which.max(table(Dataset$BUILDINGID[which(WapSample[,i] > 0)]))))
-  }else{
-    mymean <- NA
-  }
-  building_of_my_wap <- c(building_of_my_wap,mymean)
-}
+# building_of_my_wap <- c()
+# 
+# for(i in 1:520){
+#   
+#   if(length(which(WapSample[,i] > 0.2)) > 0){
+#     mymean <- as.numeric(names(which.max(table(Dataset$BUILDINGID[which(WapSample[,i] > 0)]))))
+#   }else{
+#     mymean <- NA
+#   }
+#   building_of_my_wap <- c(building_of_my_wap,mymean)
+# }
 
 
 #2 - Predict Building
@@ -161,6 +173,8 @@ print(paste0("Building prediction accuracy is " , round(successTrain,2), "%"))
 WapSample$BUILDINGID <- myBuilding
 
 
+write.csv(building_of_my_wap, "~/Documents/Ubiqum/Uji/BuildingOfMyWap.csv", row.names = FALSE)
+
 #99.8% for trainSet
 
 
@@ -169,8 +183,12 @@ if(run_final){
   fWapSample$BUILDINGID <- myBuilding
 }
 
+t1 <- proc.time() - t0
+print(paste0("Time of execution is " , round(t1[3],2)))
 
-
+####Removing waps without signal in training####
+#cols_to_kill <- which(is.na(building_of_my_wap))
+#fWapSample[, cols_to_kill] <- 0
 ####Rotation of coordinates####
 angle <- 0.50
 Dataset_coor <- as.data.frame(Dataset$LONGITUDE)
@@ -387,7 +405,7 @@ trainData$FLOOR <- Dataset$FLOOR[indexes]
 testData$FLOOR <- Dataset$FLOOR[-indexes]
 trainData$rot_x <- NULL
 testData$rot_x <- NULL
-
+fWapSample$rot_x <- NULL
 
 ####Floor Building 0####
 threshold <- 0.1
@@ -445,6 +463,7 @@ if(run_tests){
 
 if(run_final){
   fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b$BUILDINGID <- NULL
   fWapSample_b[fWapSample_b < threshold] <- 0
   
   result_f0 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
@@ -524,6 +543,7 @@ if(run_tests){
 
 if(run_final){
   fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b$BUILDINGID <- NULL
   fWapSample_b[fWapSample_b < threshold] <- 0
   
   result_f1 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
@@ -601,6 +621,8 @@ if(run_tests){
 
 if(run_final){
   fWapSample_b <- fWapSample[which(fWapSample$BUILDINGID == building), ]
+  fWapSample_b$BUILDINGID <- NULL
+  
   fWapSample_b[fWapSample_b < threshold] <- 0
   
   result_f2 <- as.data.frame(round(predict(knnmodel,newdata = fWapSample_b)))
@@ -673,7 +695,6 @@ if(run_tests){
   print(paste0("Random Forest Test Floor prediction accuracy is " , Floor_accuracy_rf, "%"))
   print(paste0("SVM Test Floor prediction accuracy is " , Floor_accuracy_svm, "%"))
   print(paste0("C5.0 Test Floor prediction accuracy is " , Floor_accuracy_c5, "%"))
-  
   print(paste0("Test Building and Floor combined accuracy is " , Total_accuracy_test, "%"))
 }
 
@@ -694,6 +715,6 @@ colnames(df_accuracy) <- c("Accuracy", "Model")
 
 
 ggplot() + geom_col(data = df_accuracy, aes(x=Model, y = Accuracy), width = 0.5) +
-  xlab("Model") + ylab("Accuracy %") +
-  ggtitle("Floor prediction accuracy ")+
-  theme(plot.title = element_text(hjust = 0.5)) + coord_flip(ylim=c(75,100))
+    xlab("Model") + ylab("Accuracy %") +
+    ggtitle("Floor prediction accuracy ")+
+    theme(plot.title = element_text(hjust = 0.5)) + coord_flip(ylim=c(75,100))
