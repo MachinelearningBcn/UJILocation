@@ -91,15 +91,19 @@ plotting <- FALSE
 
 
 ####Reading the tables####
-Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
-vDataset <- read.csv("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
-oDataset <- read.csv("~/Documents/Ubiqum/Uji/trainingData.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
+Dataset <- as.data.frame(fread("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE))
+vDataset <- as.data.frame(fread("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE))
+oDataset <- as.data.frame(fread("~/Documents/Ubiqum/Uji/trainingData.csv", sep=",",header=TRUE,stringsAsFactors = FALSE))
+
+#Dataset <- read.csv("~/Documents/Ubiqum/Uji/DatasetClean.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
+#vDataset <- read.csv("~/Documents/Ubiqum/Uji/validationData.csv", sep=",", header=TRUE, stringsAsFactors=FALSE)
+#oDataset <- read.csv("~/Documents/Ubiqum/Uji/trainingData.csv", sep=",",header=TRUE,stringsAsFactors = FALSE)
 
 #Starting coordinates at 0
 Dataset$LONGITUDE <- Dataset$LONGITUDE - min(Dataset$LONGITUDE)
 Dataset$LATITUDE <- Dataset$LATITUDE - min(Dataset$LATITUDE)
-vDataset$LONGITUDE <- vDataset$LONGITUDE - min(oDataset$LONGITUDE)
-vDataset$LATITUDE <- vDataset$LATITUDE - min(oDataset$LATITUDE)
+vDataset$LONGITUDE <- vDataset$LONGITUDE - min(c(Dataset$LONGITUDE, vDataset$LONGITUDE))
+vDataset$LATITUDE <- vDataset$LATITUDE - min(c(Dataset$LATITUDE, vDataset$LATITUDE))
 
 ####Removing duplicated rows####
 duplicated_rows <- which(duplicated(Dataset))  #3% of rows are copies of other rows
@@ -136,10 +140,18 @@ if(run_val){
 #Removing weird columns
 Test_var <- apply(WapSample, 2, var)
 Val_var <- apply(vWapSample, 2, var)
-cols_to_kill <- as.numeric(which(abs(Test_var - Val_var) > 0.05))
+
+cols_to_kill <- as.numeric(which(abs(Test_var) < 0.005))
+#cols_to_kill <- as.numeric(which(abs(Test_var - Val_var) > 0.05))
 
 WapSample[cols_to_kill] <- 0
 vWapSample[cols_to_kill] <- 0
+
+#Removing empty rows
+Empty_rows <- apply(WapSample, 1, var)
+Empty_rows <- which(Empty_rows == 0)
+
+WapSample[Empty_rows] <- NULL
 
 
 #Plots of building
@@ -254,7 +266,7 @@ if(run_val){
 
 ####Creating train and test####
 set.seed(123)
-indexes <- createDataPartition(WapSample$WAP001, p = .80, list = FALSE)
+indexes <- createDataPartition(WapSample$WAP006, p = .80, list = FALSE)
 trainData <- WapSample[indexes,1:(ncol(WapSample))]
 
 if(run_tests){
@@ -271,7 +283,7 @@ WapSample_b <- trainData[which(trainData$BUILDINGID == building),]
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 
-t_model_1 <- proc.time()
+#t_model_1 <- proc.time()
 
 rf_model <- readRDS("rf_model1.RDS")
 #rf_model <-  rpart(rot_x ~.,
@@ -280,7 +292,7 @@ rf_model <- readRDS("rf_model1.RDS")
 
 #saveRDS(rf_model, file = "rf_model1.RDS")
 
-t_model_2 <- proc.time() - t_model_1
+#t_model_2 <- proc.time() - t_model_1
 t_model_total <- t_model_total + t_model_2
 
 if(run_tests){
@@ -312,15 +324,15 @@ first_position <- Position(function(x) x != 0, colMeans(WapSample_b))
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 
-t_model_1 <- proc.time()
+#t_model_1 <- proc.time()
 rf_model <- readRDS("rf_model2.RDS")
 
 #rf_model <-  rpart(rot_x ~.,
 #                   data = WapSample_b,
 #                   control = rpart.control(maxdepth = 30,cp=0.0001))
 
-t_model_2 <- proc.time() - t_model_1
-t_model_total <- t_model_total + t_model_2
+#t_model_2 <- proc.time() - t_model_1
+#t_model_total <- t_model_total + t_model_2
 
 #saveRDS(rf_model, file = "rf_model2.RDS")
 
@@ -355,15 +367,15 @@ first_position <- Position(function(x) x != 0, colMeans(WapSample_b))
 WapSample_b$BUILDINGID <- NULL
 WapSample_b[WapSample_b < threshold] <- 0
 
-t_model_1 <- proc.time()
+#t_model_1 <- proc.time()
 
 rf_model <- readRDS("rf_model3.RDS")
 
 #rf_model <-  rpart(rot_x ~.,
 #                   data = WapSample_b,
 #                   control = rpart.control(maxdepth = 30,cp=0.0001))
-t_model_2 <- proc.time() - t_model_1
-t_model_total <- t_model_total + t_model_2
+#t_model_2 <- proc.time() - t_model_1
+#t_model_total <- t_model_total + t_model_2
 
 #saveRDS(rf_model, file = "rf_model3.RDS")
 
@@ -419,17 +431,17 @@ names(trainBuilding) <- c("rot_x","BUILDINGID")
 
 
 
-t_model_1 <- proc.time()
+#t_model_1 <- proc.time()
 rf_model_b <- readRDS("rf_model4.RDS")
 
 #rf_model_b <- rpart(BUILDINGID ~ rot_x,
 #                    data = trainBuilding,
 #                    control = rpart.control(maxdepth = 30,cp=0.0001))
 
-t_model_2 <- proc.time() - t_model_1
-t_model_total <- t_model_total + t_model_2
+#t_model_2 <- proc.time() - t_model_1
+#t_model_total <- t_model_total + t_model_2
 
-#saveRDS(rf_model_b, file = "rf_model4.RDS")
+saveRDS(rf_model_b, file = "rf_model4.RDS")
 
 if(run_tests){
   testBuilding <- as.data.frame(testData$rot_x)
@@ -494,11 +506,11 @@ if(run_tests){
     }else{
       myf <- NA
     }
-    myfloor <- c(myfloor,myf )
+    myfloor <- c(myfloor,myf)
   }
   myfloor_b0_test <- myfloor
   
-  
+    
   prediction <- as.data.frame(myfloor)
   prediction$floorid <- myfloor
   prediction <- prediction %>% mutate(resultado = testBuilding$FLOOR)
@@ -525,10 +537,10 @@ if(run_val){
     }else{
       myf <- NA
     }
+    #my_floor[i] <- myf
     myfloor <- c(myfloor,myf )
   }
   myfloor_b0_val <- myfloor
-  
   
   prediction <- as.data.frame(myfloor)
   prediction$floorid <- myfloor
@@ -739,7 +751,5 @@ if(run_val){
 
 t1 <- proc.time() - t0
 print(paste0("Time of execution is " , round(t1[3],2)))
-print(paste0("Time of creating models is " , round(t_model_total[3],2)))
-
-
+#print(paste0("Time of creating models is " , round(t_model_total[3],2)))
 

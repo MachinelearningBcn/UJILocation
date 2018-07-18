@@ -86,7 +86,7 @@ setwd(WD)
 #source("WifiFunctions.R")
 
 run_tests <- FALSE
-run_val  <- TRUE
+run_val  <- TRUE 
 remove_odd_waps <- FALSE
 norm_by_rows <- TRUE
 verbose <- FALSE
